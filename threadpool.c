@@ -5,12 +5,40 @@
 #include <errno.h>
 #include <pthread.h>
 #include <string.h>
+#include <stdbool.h>
 #include "threadpool.h"
 #include "tpdefs.h"
 #include "utilities.h"
 #include "counting.h"
 #include "queue.h"
 #include "worker.h"
+
+#define TP_ERRMESSAGE_OK "No error occurred."
+#define TP_ERRMESSAGE_NOMEMORY "System lacked sufficient memory to perform requested action."
+#define TP_ERRMESSAGE_SYSRES "System lacked resources other than memory required to perform requested action."
+#define TP_ERRMESSAGE_BADARG "Some parameter passed was invalid."
+#define TP_ERRMESSAGE_NOPERM "Process lacks permission to perform requested action."
+#define TP_ERRMESSAGE_BADCONFIG "The tp_config passed was not valid."
+#define TP_ERRMESSAGE_ISSHUTDOWN "The threadpool being referenced has been shutdown."
+#define TP_ERRMESSAGE_SHUTTINGDOWN "The threadpool is in the process of shutting down."
+#define TP_ERRMESSAGE_ISRUNNING "The threadpool being deallocated is still running."
+#define TP_ERRMESSAGE_ISLOCKED "The threadpool is locked thus preventing the requested action."
+#define TP_ERRMESSAGE_ISNOTLOCKED "The threadpool is not locked and cannot be unlocked."
+#define TP_ERRMESSAGE_LOCKEDELSEWHERE "The threadpool has been locked but the calling thread may not unlock it."
+#define TP_ERRMESSAGE_TIMEOUT "The wait time specified for an event has passed without the event occurring."
+#define TP_ERRMESSAGE_ZEROWAITING "Blocking until the number of waiting threads is zero is not supported."
+#define TP_ERRMESSAGE_UNKNOWN "An error has occurred but the reason for it is unknown."
+
+#define TP_EVALMESSAGE_OK "The tp_config is valid and may be used to construct a tp_threadpool."
+#define TP_EVALMESSAGE_WRONGVERSION "The api_version specified does not match the compiled library's version."
+#define TP_EVALMESSAGE_STACKTOOSMALL "The stack size specified is less than the API enforced minimum."
+#define TP_EVALMESSAGE_STACKNOTPAGES "The stack size specified is not a multiple of the system page size."
+#define TP_EVALMESSAGE_GUARDTOOSMALL "The guard size specified is less than TP_MINIMUM_GUARDSIZE."
+#define TP_EVALMESSAGE_SGTOOLARGE "The stack and guard sizes could cause maxthreads to exceed the process stack limit."
+#define TP_EVALMESSAGE_NOTHREADS "The maximum number of threads allowed was specified as zero."
+#define TP_EVALMESSAGE_TOOMANYTHREADS "The specified maximum number of threads exceeds a system imposed maximum."
+#define TP_EVALMESSAGE_QRESIZEZERO "One or both of the queue resize parameters is zero and therefore invalid."
+#define TP_EVALMESSAGE_PROCSCOPENSUP "The operating system does not support the TP_CONTENTIONSCOPE_PROCESS option."
 
 bool tp_info_procscopeissupported() {
     pthread_attr_t attr;
@@ -87,10 +115,6 @@ bool tp_utils_valueexceedslimit(rlim_t value, rlim_t limit) {
     return limit < value;
 }
 
-size_t tp_utils_reqstackfor(size_t numthreads) {
-    return tp_info_minstack() * numthreads;
-}
-
 size_t tp_utils_mostthreadsfor(size_t stacksize, size_t guardsize) {
     struct rlimit limit = tp_info_sysmaxstack();
     return limit.rlim_cur / (stacksize + guardsize);
@@ -158,31 +182,6 @@ tp_configeval tp_utils_evaluateconfig(tp_config config) {
     return TP_CONFIGEVAL_OK;
 }
 
-size_t tp_utils_evalmessagelength(tp_configeval eval) {
-    switch (eval) {
-        case TP_CONFIGEVAL_GUARDTOOSMALL:
-            return sizeof(TP_EVALMESSAGE_GUARDTOOSMALL);
-        case TP_CONFIGEVAL_NOTHREADS:
-            return sizeof(TP_EVALMESSAGE_NOTHREADS);
-        case TP_CONFIGEVAL_OK:
-            return sizeof(TP_EVALMESSAGE_OK);
-        case TP_CONFIGEVAL_PROCSCOPENSUP:
-            return sizeof(TP_EVALMESSAGE_PROCSCOPENSUP);
-        case TP_CONFIGEVAL_QRESIZEZERO:
-            return sizeof(TP_EVALMESSAGE_QRESIZEZERO);
-        case TP_CONFIGEVAL_SGTOOLARGE:
-            return sizeof(TP_EVALMESSAGE_SGTOOLARGE);
-        case TP_CONFIGEVAL_STACKNOTPAGES:
-            return sizeof(TP_EVALMESSAGE_STACKNOTPAGES);
-        case TP_CONFIGEVAL_STACKTOOSMALL:
-            return sizeof(TP_EVALMESSAGE_STACKTOOSMALL);
-        case TP_CONFIGEVAL_TOOMANYTHREADS:
-            return sizeof(TP_EVALMESSAGE_TOOMANYTHREADS);
-        case TP_CONFIGEVAL_WRONGVERSION:
-            return sizeof(TP_EVALMESSAGE_WRONGVERSION);
-    }
-}
-
 char * tp_utils_evalmessage(tp_configeval eval, char *buffer) {
     switch (eval) {
         case TP_CONFIGEVAL_GUARDTOOSMALL:
@@ -205,41 +204,6 @@ char * tp_utils_evalmessage(tp_configeval eval, char *buffer) {
             return strcpy(buffer, TP_EVALMESSAGE_TOOMANYTHREADS);
         case TP_CONFIGEVAL_WRONGVERSION:
             return strcpy(buffer, TP_EVALMESSAGE_WRONGVERSION);
-    }
-}
-
-size_t tp_utils_errormessagelength(tp_error error) {
-    switch (error) {
-        case TP_ERROR_BADARG:
-            return sizeof(TP_ERRMESSAGE_BADARG);
-        case TP_ERROR_BADCONFIG:
-            return sizeof(TP_ERRMESSAGE_BADCONFIG);
-        case TP_ERROR_ISLOCKED:
-            return sizeof(TP_ERRMESSAGE_ISLOCKED);
-        case TP_ERROR_ISNOTLOCKED:
-            return sizeof(TP_ERRMESSAGE_ISNOTLOCKED);
-        case TP_ERROR_ISRUNNING:
-            return sizeof(TP_ERRMESSAGE_ISRUNNING);
-        case TP_ERROR_ISSHUTDOWN:
-            return sizeof(TP_ERRMESSAGE_ISSHUTDOWN);
-        case TP_ERROR_SHUTTINGDOWN:
-            return sizeof(TP_ERRMESSAGE_SHUTTINGDOWN);
-        case TP_ERROR_LOCKEDELSEWHERE:
-            return sizeof(TP_ERRMESSAGE_LOCKEDELSEWHERE);
-        case TP_ERROR_NOMEMORY:
-            return sizeof(TP_ERRMESSAGE_NOMEMORY);
-        case TP_ERROR_NOPERM:
-            return sizeof(TP_ERRMESSAGE_NOPERM);
-        case TP_ERROR_OK:
-            return sizeof(TP_ERRMESSAGE_OK);
-        case TP_ERROR_SYSRES:
-            return sizeof(TP_ERRMESSAGE_SYSRES);
-        case TP_ERROR_TIMEOUT:
-            return sizeof(TP_ERRMESSAGE_TIMEOUT);
-        case TP_ERROR_ZEROWAITING:
-            return sizeof(TP_ERRMESSAGE_ZEROWAITING);
-        case TP_ERROR_UNKNOWN:
-            return sizeof(TP_ERRMESSAGE_UNKNOWN);
     }
 }
 

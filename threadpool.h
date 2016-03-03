@@ -1,28 +1,17 @@
 #ifndef threadpool_h
 #define threadpool_h
+
+#if defined(__cplusplus)
+extern "C" {
+#endif
     
 #include <stddef.h>
 #include <stdbool.h>
 
 #define TP_API_VERSION 1
+#define TP_MESSAGE_MAXSIZE 96
 
 typedef struct tp_threadpool tp_threadpool;
-
-#define TP_ERRMESSAGE_OK "No error occurred."
-#define TP_ERRMESSAGE_NOMEMORY "System lacked sufficient memory to perform requested action."
-#define TP_ERRMESSAGE_SYSRES "System lacked resources other than memory required to perform requested action."
-#define TP_ERRMESSAGE_BADARG "Some parameter passed was invalid."
-#define TP_ERRMESSAGE_NOPERM "Process lacks permission to perform requested action."
-#define TP_ERRMESSAGE_BADCONFIG "The tp_config passed was not valid."
-#define TP_ERRMESSAGE_ISSHUTDOWN "The threadpool being referenced has been shutdown."
-#define TP_ERRMESSAGE_SHUTTINGDOWN "The threadpool is in the process of shutting down."
-#define TP_ERRMESSAGE_ISRUNNING "The threadpool being deallocated is still running."
-#define TP_ERRMESSAGE_ISLOCKED "The threadpool is locked thus preventing the requested action."
-#define TP_ERRMESSAGE_ISNOTLOCKED "The threadpool is not locked and cannot be unlocked."
-#define TP_ERRMESSAGE_LOCKEDELSEWHERE "The threadpool has been locked but the calling thread may not unlock it."
-#define TP_ERRMESSAGE_TIMEOUT "The wait time specified for an event has passed without the event occurring."
-#define TP_ERRMESSAGE_ZEROWAITING "Blocking until the number of waiting threads is zero is not supported."
-#define TP_ERRMESSAGE_UNKNOWN "An error has occurred but the reason for it is unknown."
 
 typedef enum {
     TP_ERROR_OK = 0,
@@ -41,17 +30,6 @@ typedef enum {
     TP_ERROR_ZEROWAITING,
     TP_ERROR_UNKNOWN
 } tp_error;
-
-#define TP_EVALMESSAGE_OK "The tp_config is valid and may be used to construct a tp_threadpool."
-#define TP_EVALMESSAGE_WRONGVERSION "The api_version specified does not match the compiled library's version."
-#define TP_EVALMESSAGE_STACKTOOSMALL "The stack size specified is less than the API enforced minimum."
-#define TP_EVALMESSAGE_STACKNOTPAGES "The stack size specified is not a multiple of the system page size."
-#define TP_EVALMESSAGE_GUARDTOOSMALL "The guard size specified is less than TP_MINIMUM_GUARDSIZE."
-#define TP_EVALMESSAGE_SGTOOLARGE "The stack and guard sizes could cause maxthreads to exceed the process stack limit."
-#define TP_EVALMESSAGE_NOTHREADS "The maximum number of threads allowed was specified as zero."
-#define TP_EVALMESSAGE_TOOMANYTHREADS "The specified maximum number of threads exceeds a system imposed maximum."
-#define TP_EVALMESSAGE_QRESIZEZERO "One or both of the queue resize parameters is zero and therefore invalid."
-#define TP_EVALMESSAGE_PROCSCOPENSUP "The operating system does not support the TP_CONTENTIONSCOPE_PROCESS option."
 
 typedef enum {
     TP_CONFIGEVAL_OK = 0,
@@ -139,16 +117,11 @@ struct rlimit tp_info_sysmaxthreads();
 size_t tp_info_sizeofthreadpool();
 
 size_t tp_utils_roundedstack(size_t stacksize);
-bool tp_utils_limitisunlimited(rlim_t limit);
-bool tp_utils_valueexceedslimit(rlim_t value, rlim_t limit);
-size_t tp_utils_reqstackfor(size_t numthreads);
 size_t tp_utils_mostthreadsfor(size_t stacksize, size_t guardsize);
 tp_config tp_utils_blankconfig();
 tp_config tp_utils_defaultconfig();
 tp_configeval tp_utils_evaluateconfig(tp_config config);
-size_t tp_utils_evalmessagelength(tp_configeval eval);
 char * tp_utils_evalmessage(tp_configeval eval, char *buffer);
-size_t tp_utils_errormessagelength(tp_error error);
 char * tp_utils_errormessage(tp_error error, char *buffer);
 clock_t tp_utils_sectoclock(double seconds);
 bool tp_utils_statsareclear(tp_stats);
@@ -157,6 +130,7 @@ tp_error tp_create(tp_threadpool **pool, tp_config config);
 
 tp_config tp_getconfig(tp_threadpool *pool);
 tp_stats tp_getstats(tp_threadpool *pool);
+bool tp_canhandlesigs(tp_threadpool *pool);
 bool tp_isrunning(tp_threadpool *pool);
 bool tp_islocked(tp_threadpool *pool);
 bool tp_isclear(tp_threadpool *pool);
@@ -174,5 +148,9 @@ tp_error tp_unlock(tp_threadpool *pool);
 tp_error tp_shutdown(tp_threadpool *pool);
 
 tp_error tp_destroy(tp_threadpool *pool);
+    
+#if defined(__cplusplus)
+}
+#endif
 
 #endif

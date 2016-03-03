@@ -1,7 +1,9 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <errno.h>
+#include <string.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <time.h>
@@ -42,7 +44,11 @@ struct timespec tpu_relative_timespec(size_t millis) {
 
 bool tpu_relative_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, size_t millis) {
     struct timespec then = tpu_relative_timespec(millis);
-    if (pthread_cond_timedwait(cond, mutex, &then)) {
+    int result = pthread_cond_timedwait(cond, mutex, &then);
+    if (result) {
+        char buffer[1024];
+        strerror_r(result, buffer, 1024);
+        printf("error: %s\n", buffer);
         return false;
     }
     return true;
@@ -65,7 +71,7 @@ size_t tpu_get_random() {
     return act;
 }
 
-size_t get_random_index(size_t max) {
+size_t tpu_get_random_index(size_t max) {
     return tpu_get_random() % max;
 }
 
