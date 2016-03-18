@@ -1,0 +1,46 @@
+The test for threadpool must be tailored to handle the threadpool's features.
+In particular, the following features should be tested.
+	Threadpool is expandable.
+	Threadpool contracts when possible.
+	Threadpool stops contracting when too small.
+	Threadpool locks and stops updating stats.
+	Threadpool unlocks and starts updating stats.
+
+These features should be tested with repeated tasks. Further, every single
+method in the library should be tested. Where possible this should be checked
+against a file specifying what the correct output should be. The following are
+some methods to determine whether some methods return the correct result.
+Methods not listed in this list should still be called, but only to see if
+they throw an exception.
+
+tp_info_hardwareconcurrency - call analogous C++ function and compare result
+tp_utils_evaluateconfig - create configs for each error type to test
+tp_utils_evalmessage(length) - strcmp results with known
+tp_utils_errormessage(length) - strcmp results with known
+
+The test program will have three sections.
+	Validate info/utils methods.
+	Run/validate threapool with tasks.
+	Verify tasks were completed correctly.
+
+The task being performed should not be too information intensive because it
+should be replicated several thousand times. However, the task must take long
+enough that the task queue can be reasonably built up. The best answer seems
+to be that the task to be executed should actually be serial, despite being
+executed on multiple threads. This will force the queue to build up without
+using an excess of memory.
+
+Specifically the task should be to sort an array, write the sorted array to
+a file, and then randomly generate a new array shifted upwards. The
+verification step then becomes to make sure that the output file contains only
+lines of sorted arrays, and that the range of numbers in each line is
+correctly based on the previous line.
+
+Signal handlers should be installed to unlink files and destroy the thread
+pool. This signal handling should follow the pattern of what was tried in
+libthreadpool itself. This library should perhaps be made public.
+
+To test error handling only a few errors need to be triggered, if even more
+than one. The most important thing is that the errors are caught and then not
+caught after removing the signal handlers. The handler may notify a program of
+its success by signalling a conditional variable.

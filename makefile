@@ -2,14 +2,11 @@ CFLAGS=-Wall -c
 CC=gcc
 CPP=g++
 
-libthreadpool.a: threadpool.o sighandling.o worker.o queue.o counting.o utilities.o
-	ar rcs libthreadpool.a threadpool.o sighandling.o worker.o queue.o counting.o utilities.o
+libthreadpool.a: threadpool.o worker.o queue.o counting.o utilities.o
+	ar rcs libthreadpool.a threadpool.o worker.o queue.o counting.o utilities.o
 
-test: libthreadpool.a main.cpp
-	$(CPP) main.cpp -L. -lthreadpool -o test
-
-sighandling.o: sighandling.c sighandling.h
-	$(CC) $(CFLAGS) sighandling.c -o sighandling.o
+test: libthreadpool.a main.c
+	$(CC) main.c -L. -lthreadpool -o test
 
 threadpool.o: worker.o queue.o counting.o utilities.o threadpool.c
 	$(CC) $(CFLAGS) threadpool.c worker.o queue.o counting.o utilities.o
